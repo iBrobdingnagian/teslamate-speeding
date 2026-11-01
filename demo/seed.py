@@ -133,16 +133,23 @@ def main():
                     avg_speed = limit + max(over - rng.uniform(1, 4), tol + 0.5)
                     duration = max(round(dist / (avg_speed / 3.6)), si.MIN_DURATION_S)
                     t0 = start + dt.timedelta(minutes=minutes * f0)
+                    weather = rng.choices(["Clear", "Clouds", "Rain", "Fog", "Snow"], weights=[40, 30, 22, 5, 3])[0]
+                    rain = round(rng.uniform(0.3, 4.0), 1) if weather == "Rain" else 0
+                    visibility = rng.choice([800, 1500, 3000]) if weather == "Fog" else rng.choice([8000, 10000])
                     cur.execute("""INSERT INTO speeding_incidents
                         (drive_id, car_id, start_ts, end_ts, duration_s, speed_limit, max_speed, avg_speed, max_over,
                          avg_over, tolerance_kmh, road_name, road_numbers, start_lat, start_lon, end_lat, end_lon, path,
-                         distance_m, time_saved_s, correlated_at)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())""",
+                         distance_m, time_saved_s, weather_main, temperature_c, wind_speed_ms, rain_1h, humidity,
+                         visibility_m, roadworks_nearby, correlated_at)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                                %s,%s,%s,%s,%s,%s,%s, now())""",
                                 (drive_id, car_id, t0, t0 + dt.timedelta(seconds=duration), duration, limit, max_speed,
                                  round(avg_speed, 1), over, round(avg_speed - limit, 1), tol, route[0], route[1],
                                  round(p0[0], 6), round(p0[1], 6), round(p1[0], 6), round(p1[1], 6),
                                  json.dumps({"type": "LineString", "coordinates": coords}), round(dist),
-                                 round(dist / (limit / 3.6) - duration, 1)))
+                                 round(dist / (limit / 3.6) - duration, 1), weather, round(rng.uniform(-2, 24), 1),
+                                 round(rng.uniform(0.5, 11), 1), rain, rng.randint(45, 98), visibility,
+                                 rng.random() < 0.12))
                     places[(round(p0[0], 3), round(p0[1], 3))] = (route[0], route[5])
 
                 cur.execute("""INSERT INTO speeding_drive_status (drive_id, status, api_calls, points_sent, matched_pct)

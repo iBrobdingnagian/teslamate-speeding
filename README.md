@@ -87,9 +87,23 @@ The constants are at the top of `speeding/speeding_incidents.py`.
 
 `speeding_incidents` (one row per incident, path as GeoJSON), `speeding_drive_status` (which drives are done), `speeding_places` (street and town per rounded coordinate cell; this repository does not fill it, and the dashboards fall back to coordinates when it is empty), `speed_limit_overrides` (your own limits: add rows by hand), `speeding_runs` (month-end bookkeeping), `autobahn_stretches` (stretches with only a recommended speed), `api_usage_log` (TomTom calls per key).
 
-## Optional: traffic, weather and roadworks columns
+## Weather
 
-`speeding_incidents` has columns for traffic, weather and roadworks context. They stay empty unless you set `SPEEDING_CORRELATE=1` and provide the source tables the script reads (`traffic_correlation`, `weather_data`, `traffic_flow_snapshots`, `traffic_incidents`). Those tables are not part of TeslaMate or of this repository, so the dashboards' weather and roadworks panels are empty by default. Everything else works without them.
+Each incident can carry the weather at that moment (condition, temperature, wind, rain, humidity, visibility), so you can see how much of your speeding happens in rain or fog. The weather panels of the dashboards use it.
+
+Weather comes from the free [Open-Meteo](https://open-meteo.com) archive, which needs no API key. `weather/fetch_weather.py` looks up the weather for the drives in your TeslaMate database and stores it in a `weather_data` table.
+
+```sh
+psql -U teslamate teslamate -f weather/weather_data.sql      # once: creates the table
+python3 weather/fetch_weather.py --days 30 --limit 200       # fetch weather for recent drives
+SPEEDING_CORRELATE=weather python3 speeding/speeding_incidents.py --recorrelate-all
+```
+
+Set `SPEEDING_CORRELATE=weather` in `.env` to keep it on for every run. Open-Meteo is free for non-commercial use, so keep the volume modest.
+
+## Optional: traffic and roadworks columns
+
+`SPEEDING_CORRELATE=traffic` also fills traffic congestion, live flow and roadworks columns, but it reads tables that are not part of TeslaMate or of this repository (`traffic_correlation`, `traffic_flow_snapshots`, `traffic_incidents`). Use `weather,traffic` or `1` for both. Without them the roadworks and traffic panels stay empty and everything else works.
 
 ## Limits and honest caveats
 

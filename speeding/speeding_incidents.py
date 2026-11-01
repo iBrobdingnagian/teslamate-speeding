@@ -408,6 +408,16 @@ def pending_correlation_ids(cur):
     return [r[0] for r in cur.fetchall()]
 
 
+def correlate_modes():
+    """Which optional sources to join, from SPEEDING_CORRELATE: "weather", "traffic", both ("weather,traffic"),
+    or "1"/"all" for both. Empty or "0" joins nothing. weather needs weather_data (see weather/); traffic needs
+    traffic_correlation, traffic_flow_snapshots and traffic_incidents, which this repository does not provide."""
+    raw = {m.strip().lower() for m in os.getenv("SPEEDING_CORRELATE", "0").split(",")}
+    if raw & {"1", "all"}:
+        return {"weather", "traffic"}
+    return raw & {"weather", "traffic"}
+
+
 def correlate(cur, ids):
     """Fill the correlation columns for these incidents. Never overwrites a value that is already set, so
     it is safe to repeat. Sources, best first: traffic_correlation (since May 2026), inferred_traffic and
@@ -416,76 +426,80 @@ def correlate(cur, ids):
     if not ids:
         return
     p = {"ids": list(ids)}
-    if os.getenv("SPEEDING_CORRELATE", "0") != "1":
-        # the traffic, weather and roadworks sources are optional extra tables, not part of TeslaMate
+    modes = correlate_modes()
+    if not modes:
+        # nothing to join: the optional source tables are not part of TeslaMate
         cur.execute("UPDATE speeding_incidents SET correlated_at = now() WHERE id = ANY(%(ids)s)", p)
         return
-    # inferred_traffic and position_traffic_analysis are views that aggregate every position; restricting them
-    # to these drives (not just joining on drive_id) lets PostgreSQL aggregate only those drives.
-    cur.execute("SELECT DISTINCT drive_id FROM speeding_incidents WHERE id = ANY(%(ids)s)", p)
-    p["drives"] = [r[0] for r in cur.fetchall()]
-    cur.execute("""UPDATE speeding_incidents s SET traffic_score = COALESCE(s.traffic_score, tc.traffic_score),
-                   weather_main = COALESCE(s.weather_main, tc.weather_main),
-                   temperature_c = COALESCE(s.temperature_c, tc.temperature_c),
-                   wind_speed_ms = COALESCE(s.wind_speed_ms, tc.wind_speed_ms),
-                   is_weekend = COALESCE(s.is_weekend, tc.is_weekend)
-                   FROM traffic_correlation tc WHERE tc.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
-    cur.execute("""UPDATE speeding_incidents s SET congestion_ratio = COALESCE(s.congestion_ratio, it.congestion_ratio),
-                   time_category = COALESCE(s.time_category, it.time_category),
-                   day_type = COALESCE(s.day_type, it.day_type)
-                   FROM inferred_traffic it WHERE it.drive_id = ANY(%(drives)s) AND it.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
-    cur.execute("""UPDATE speeding_incidents s SET congestion_score = COALESCE(s.congestion_score, pa.congestion_score),
-                   slow_traffic_pct = COALESCE(s.slow_traffic_pct, pa.slow_traffic_percentage)
-                   FROM position_traffic_analysis pa WHERE pa.drive_id = ANY(%(drives)s) AND pa.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
+    if "traffic" in modes:
+        # inferred_traffic and position_traffic_analysis are views that aggregate every position; restricting them
+        # to these drives (not just joining on drive_id) lets PostgreSQL aggregate only those drives.
+        cur.execute("SELECT DISTINCT drive_id FROM speeding_incidents WHERE id = ANY(%(ids)s)", p)
+        p["drives"] = [r[0] for r in cur.fetchall()]
+        cur.execute("""UPDATE speeding_incidents s SET traffic_score = COALESCE(s.traffic_score, tc.traffic_score),
+                       weather_main = COALESCE(s.weather_main, tc.weather_main),
+                       temperature_c = COALESCE(s.temperature_c, tc.temperature_c),
+                       wind_speed_ms = COALESCE(s.wind_speed_ms, tc.wind_speed_ms),
+                       is_weekend = COALESCE(s.is_weekend, tc.is_weekend)
+                       FROM traffic_correlation tc WHERE tc.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
+        cur.execute("""UPDATE speeding_incidents s SET congestion_ratio = COALESCE(s.congestion_ratio, it.congestion_ratio),
+                       time_category = COALESCE(s.time_category, it.time_category),
+                       day_type = COALESCE(s.day_type, it.day_type)
+                       FROM inferred_traffic it WHERE it.drive_id = ANY(%(drives)s) AND it.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
+        cur.execute("""UPDATE speeding_incidents s SET congestion_score = COALESCE(s.congestion_score, pa.congestion_score),
+                       slow_traffic_pct = COALESCE(s.slow_traffic_pct, pa.slow_traffic_percentage)
+                       FROM position_traffic_analysis pa WHERE pa.drive_id = ANY(%(drives)s) AND pa.drive_id = s.drive_id AND s.id = ANY(%(ids)s)""", p)
     cur.execute("""UPDATE speeding_incidents SET hour_utc = EXTRACT(hour FROM start_ts)::smallint,
                    is_weekend = COALESCE(is_weekend, EXTRACT(isodow FROM start_ts) >= 6),
                    day_type = COALESCE(day_type, CASE WHEN EXTRACT(isodow FROM start_ts) >= 6
                                                       THEN 'weekend' ELSE 'weekday' END)
                    WHERE id = ANY(%(ids)s)""", p)
-    cur.execute("""UPDATE speeding_incidents s SET weather_main = COALESCE(s.weather_main, w.weather_main),
-                   temperature_c = COALESCE(s.temperature_c, w.temperature),
-                   wind_speed_ms = COALESCE(s.wind_speed_ms, w.wind_speed),
-                   rain_1h = w.rain_1h, humidity = w.humidity, visibility_m = w.visibility
-                   FROM (SELECT DISTINCT ON (s2.id) s2.id, w.weather_main, w.temperature, w.wind_speed, w.rain_1h,
-                                w.humidity, w.visibility
-                         FROM speeding_incidents s2
-                         JOIN weather_data w ON w.car_id = s2.car_id
-                          AND abs(extract(epoch FROM (w.date - (s2.start_ts AT TIME ZONE 'UTC')))) <= 10800
-                          AND abs(w.latitude - s2.start_lat) <= 0.5 AND abs(w.longitude - s2.start_lon) <= 0.7
-                         WHERE s2.id = ANY(%(ids)s)
-                         ORDER BY s2.id, abs(extract(epoch FROM (w.date - (s2.start_ts AT TIME ZONE 'UTC'))))) w
-                   WHERE s.id = w.id""", p)
-    cur.execute("""UPDATE speeding_incidents s SET flow_current_kmh = m.current_speed_kmh,
-                   flow_free_kmh = m.free_flow_speed_kmh, flow_delay_pct = m.delay_pct, flow_snapshot_at = m.computed_at
-                   FROM (SELECT DISTINCT ON (s2.id) s2.id, f.current_speed_kmh, f.free_flow_speed_kmh, f.delay_pct,
-                                f.computed_at
-                         FROM speeding_incidents s2
-                         JOIN traffic_flow_snapshots f ON f.car_id = s2.car_id
-                          AND abs(extract(epoch FROM (f.computed_at - (s2.start_ts AT TIME ZONE 'UTC')))) <= 600
-                          AND f.latitude BETWEEN s2.start_lat - 0.03 AND s2.start_lat + 0.03
-                          AND f.longitude BETWEEN s2.start_lon - 0.05 AND s2.start_lon + 0.05
-                         WHERE s2.id = ANY(%(ids)s) AND s2.flow_snapshot_at IS NULL
-                         ORDER BY s2.id, abs(extract(epoch FROM (f.computed_at - (s2.start_ts AT TIME ZONE 'UTC'))))) m
-                   WHERE s.id = m.id""", p)
-    cur.execute("""UPDATE speeding_incidents s SET traffic_incidents_nearby = (
-                       SELECT count(*) FROM traffic_incidents ti WHERE ti.car_id = s.car_id
-                         AND ti.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
-                                                AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes')
-                   WHERE s.id = ANY(%(ids)s)""", p)
-    # Roadworks / lane closure reported by TomTom Traffic Incident Details near the start of the incident
-    # (+-30 min). NULL when we have no incident data for that time at all, so "no roadworks" is never guessed.
-    cur.execute("""UPDATE speeding_incidents s SET roadworks_nearby = CASE
-                   WHEN NOT EXISTS (SELECT 1 FROM traffic_incidents t0 WHERE t0.car_id = s.car_id
-                        AND t0.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
-                                               AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes') THEN NULL
-                   ELSE EXISTS (SELECT 1 FROM traffic_incidents ti, jsonb_array_elements(ti.geometry->'coordinates') c
-                        WHERE ti.car_id = s.car_id AND ti.icon_category IN (7, 9)
-                          AND ti.geometry->>'type' = 'LineString'
-                          AND ti.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
-                                                 AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes'
-                          AND abs((c->>0)::float - s.start_lon::float) < 0.004
-                          AND abs((c->>1)::float - s.start_lat::float) < 0.003) END
-                   WHERE s.id = ANY(%(ids)s)""", p)
+    if "weather" in modes:
+        cur.execute("""UPDATE speeding_incidents s SET weather_main = COALESCE(s.weather_main, w.weather_main),
+                       temperature_c = COALESCE(s.temperature_c, w.temperature),
+                       wind_speed_ms = COALESCE(s.wind_speed_ms, w.wind_speed),
+                       rain_1h = w.rain_1h, humidity = w.humidity, visibility_m = w.visibility
+                       FROM (SELECT DISTINCT ON (s2.id) s2.id, w.weather_main, w.temperature, w.wind_speed, w.rain_1h,
+                                    w.humidity, w.visibility
+                             FROM speeding_incidents s2
+                             JOIN weather_data w ON w.car_id = s2.car_id
+                              AND abs(extract(epoch FROM (w.date - (s2.start_ts AT TIME ZONE 'UTC')))) <= 10800
+                              AND abs(w.latitude - s2.start_lat) <= 0.5 AND abs(w.longitude - s2.start_lon) <= 0.7
+                             WHERE s2.id = ANY(%(ids)s)
+                             ORDER BY s2.id, abs(extract(epoch FROM (w.date - (s2.start_ts AT TIME ZONE 'UTC'))))) w
+                       WHERE s.id = w.id""", p)
+    if "traffic" in modes:
+        cur.execute("""UPDATE speeding_incidents s SET flow_current_kmh = m.current_speed_kmh,
+                       flow_free_kmh = m.free_flow_speed_kmh, flow_delay_pct = m.delay_pct, flow_snapshot_at = m.computed_at
+                       FROM (SELECT DISTINCT ON (s2.id) s2.id, f.current_speed_kmh, f.free_flow_speed_kmh, f.delay_pct,
+                                    f.computed_at
+                             FROM speeding_incidents s2
+                             JOIN traffic_flow_snapshots f ON f.car_id = s2.car_id
+                              AND abs(extract(epoch FROM (f.computed_at - (s2.start_ts AT TIME ZONE 'UTC')))) <= 600
+                              AND f.latitude BETWEEN s2.start_lat - 0.03 AND s2.start_lat + 0.03
+                              AND f.longitude BETWEEN s2.start_lon - 0.05 AND s2.start_lon + 0.05
+                             WHERE s2.id = ANY(%(ids)s) AND s2.flow_snapshot_at IS NULL
+                             ORDER BY s2.id, abs(extract(epoch FROM (f.computed_at - (s2.start_ts AT TIME ZONE 'UTC'))))) m
+                       WHERE s.id = m.id""", p)
+        cur.execute("""UPDATE speeding_incidents s SET traffic_incidents_nearby = (
+                           SELECT count(*) FROM traffic_incidents ti WHERE ti.car_id = s.car_id
+                             AND ti.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
+                                                    AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes')
+                       WHERE s.id = ANY(%(ids)s)""", p)
+        # Roadworks / lane closure reported by TomTom Traffic Incident Details near the start of the incident
+        # (+-30 min). NULL when we have no incident data for that time at all, so "no roadworks" is never guessed.
+        cur.execute("""UPDATE speeding_incidents s SET roadworks_nearby = CASE
+                       WHEN NOT EXISTS (SELECT 1 FROM traffic_incidents t0 WHERE t0.car_id = s.car_id
+                            AND t0.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
+                                                   AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes') THEN NULL
+                       ELSE EXISTS (SELECT 1 FROM traffic_incidents ti, jsonb_array_elements(ti.geometry->'coordinates') c
+                            WHERE ti.car_id = s.car_id AND ti.icon_category IN (7, 9)
+                              AND ti.geometry->>'type' = 'LineString'
+                              AND ti.computed_at BETWEEN (s.start_ts AT TIME ZONE 'UTC') - interval '30 minutes'
+                                                     AND (s.end_ts AT TIME ZONE 'UTC') + interval '30 minutes'
+                              AND abs((c->>0)::float - s.start_lon::float) < 0.004
+                              AND abs((c->>1)::float - s.start_lat::float) < 0.003) END
+                       WHERE s.id = ANY(%(ids)s)""", p)
     cur.execute("UPDATE speeding_incidents SET correlated_at = now() WHERE id = ANY(%(ids)s)", p)
 
 
