@@ -1,0 +1,16 @@
+apiVersion: 1
+providers:
+  - name: speeding-safety
+    folder: Safety
+    type: file
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /dashboards_speeding/safety
+  - name: speeding-location
+    folder: Location
+    type: file
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /dashboards_speeding/location

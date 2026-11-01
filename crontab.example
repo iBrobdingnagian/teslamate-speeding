@@ -1,0 +1,4 @@
+# Nightly: process drives of the last 3 days, stop when 80 % of the monthly TomTom quota is used
+45 3 * * *  cd /opt/teslamate-speeding && python3 speeding/speeding_incidents.py --car-id 1 --days 3 --stop-at-pct 80
+# Last day of the month: spend 90 % of the Snap to Roads quota that is still unused on older drives
+0 4,12,20 28-31 * *  [ "$(date -d tomorrow +\%d)" = "01" ] && cd /opt/teslamate-speeding && python3 speeding/speeding_incidents.py --car-id 1 --backfill --month-end --budget-pct 90

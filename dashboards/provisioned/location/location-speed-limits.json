@@ -1,0 +1,972 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Where speeding happens: repeat hotspots, limits by country and your own custom limits. Real limits come from TomTom Snap to Roads; places are named with TomTom Reverse Geocoding.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Speeding dashboards",
+      "type": "dashboards",
+      "tags": [
+        "speeding"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 37,
+      "type": "stat",
+      "title": "Repeat spots",
+      "description": "Places (about 100 m) with at least 3 incidents.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS places FROM (SELECT 1 FROM speeding_incidents i WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3) HAVING count(*) >= 3) t",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 38,
+      "type": "stat",
+      "title": "Most visits to one spot",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT max(n) AS visits FROM (SELECT count(*) AS n FROM speeding_incidents i WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3)) t",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 39,
+      "type": "stat",
+      "title": "Countries",
+      "description": "Countries with incidents (from Reverse Geocoding; fills in over the first days).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(DISTINCT p.country) AS countries FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 40,
+      "type": "stat",
+      "title": "Incidents with a place name",
+      "description": "Place names are added by a nightly job, hotspots first.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(100.0 * count(p.label) / NULLIF(count(*), 0), 1) AS named FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 41,
+      "type": "stat",
+      "title": "During roadworks",
+      "description": "Incidents where TomTom reported roadworks or a lane closure nearby at that time. The limit there may be temporary. Only known for times we have traffic incident data.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS roadworks FROM speeding_incidents i WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over AND i.roadworks_nearby",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 42,
+      "type": "geomap",
+      "title": "Hotspots",
+      "description": "One marker per ~100 m spot; size = number of incidents, colour = worst overage.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 13
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(i.start_lat, 3)::float AS latitude, round(i.start_lon, 3)::float AS longitude, count(*) AS incidents, max(convert_km(i.max_over::numeric, '$length_unit')) AS over, coalesce(max(COALESCE(NULLIF(concat_ws(', ', p.street, p.municipality), ''), p.label)), '') AS place FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3) ORDER BY incidents ASC LIMIT 3000",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 20
+              },
+              {
+                "color": "dark-red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "fit",
+          "allLayers": true,
+          "lat": 48,
+          "lon": 8,
+          "zoom": 6
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": true
+        },
+        "basemap": {
+          "type": "osm-standard",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Hotspots",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "config": {
+              "showLegend": true,
+              "style": {
+                "size": {
+                  "field": "incidents",
+                  "fixed": 6,
+                  "min": 5,
+                  "max": 26
+                },
+                "color": {
+                  "field": "incidents",
+                  "fixed": "dark-red"
+                },
+                "opacity": 0.75,
+                "symbol": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/marker/circle.svg"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        }
+      }
+    },
+    {
+      "id": 43,
+      "type": "table",
+      "title": "Hotspot list",
+      "description": "Most repeated spots first. 'limits' are the limits TomTom reports there.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 13
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(max(COALESCE(NULLIF(concat_ws(', ', p.street, p.municipality), ''), p.label)), concat(round(i.start_lat, 3), ', ', round(i.start_lon, 3))) AS place, max(p.municipality) AS town, max(p.country) AS country, count(*) AS incidents, count(DISTINCT i.drive_id) AS drives, round(avg(i.max_over), 1) AS \"avg_over\", max(i.max_over) AS \"max_over\", string_agg(DISTINCT i.speed_limit::text, ', ') AS \"limits\", max(i.start_ts) AS \"last_seen\", count(*) FILTER (WHERE i.roadworks_nearby) AS \"with_roadworks\", (array_agg(i.id ORDER BY i.max_over DESC))[1] AS incident_id, round(i.start_lat, 3)::float AS latitude, round(i.start_lon, 3)::float AS longitude FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3) ORDER BY incidents DESC, max(i.max_over) DESC LIMIT 200",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "longitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "incident_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "place"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Show the worst incident here on the map",
+                    "url": "/d/location_speed_limits?${__url_time_range}&var-car_id=${car_id}&var-min_over=${min_over}&var-spot=${__data.fields.incident_id}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "place"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 44,
+      "type": "geomap",
+      "title": "Incident path at the chosen spot",
+      "description": "The exact snapped stretch of the worst incident at the spot chosen in 'Spot on path map' above, or click a place in the hotspot list.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 11
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT c.ord::int AS idx, (c.coord->>1)::float AS latitude, (c.coord->>0)::float AS longitude, i.max_over AS over FROM speeding_incidents i, jsonb_array_elements(i.path->'coordinates') WITH ORDINALITY AS c(coord, ord) WHERE i.id = NULLIF('$spot', '')::int ORDER BY c.ord",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 20
+              },
+              {
+                "color": "dark-red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "fit",
+          "allLayers": true,
+          "lat": 48,
+          "lon": 8,
+          "zoom": 6
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": true
+        },
+        "basemap": {
+          "type": "osm-standard",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "route",
+            "name": "Incident path at the chosen spot",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "config": {
+              "style": {
+                "size": {
+                  "fixed": 5,
+                  "min": 2,
+                  "max": 10
+                },
+                "color": {
+                  "fixed": "red"
+                },
+                "opacity": 0.9,
+                "arrow": 1
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        }
+      }
+    },
+    {
+      "id": 45,
+      "type": "table",
+      "title": "Limits by country",
+      "description": "Where each speed limit gets exceeded, by country.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 11
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(p.country, 'unknown') AS country, convert_km(i.speed_limit::numeric, '$length_unit') AS \"limit_$length_unit\", count(*) AS incidents, round(avg(i.max_over), 1) AS \"avg_over\", max(i.max_over) AS \"max_over\" FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY 1, i.speed_limit ORDER BY 1, i.speed_limit",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 46,
+      "type": "barchart",
+      "title": "Incidents by country",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 10,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(p.country, 'unknown') AS country, count(*) AS incidents FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY 1 ORDER BY 2 DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "barWidth": 0.9,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 47,
+      "type": "table",
+      "title": "Your custom limits",
+      "description": "Add your own limits for places where you know better than the map, for example:\nINSERT INTO speed_limit_overrides (name, latitude, longitude, radius_m, limit_kmh, note) VALUES ('School street', 48.5933, 7.7531, 150, 30, 'zone 30');\nOnly incidents (over TomTom's limit) are counted, so a custom limit lower than TomTom's undercounts.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 28,
+        "w": 14,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT o.name AS place, o.limit_kmh AS \"your_limit\", count(i.id) AS \"incidents_here\", count(i.id) FILTER (WHERE i.max_speed > o.limit_kmh + greatest(5, round(0.05 * o.limit_kmh))) AS \"over_your_limit\", max(i.max_speed) AS \"top_speed\", string_agg(DISTINCT i.speed_limit::text, ', ') AS \"tomtom_limit\", o.note FROM speed_limit_overrides o LEFT JOIN speeding_incidents i ON i.car_id = $car_id AND $__timeFilter(i.start_ts) AND sqrt(power((i.start_lat::float - o.latitude::float) * 111320, 2) + power((i.start_lon::float - o.longitude::float) * 111320 * cos(radians(o.latitude::float)), 2)) <= o.radius_m GROUP BY o.id ORDER BY 4 DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [
+    "tesla",
+    "location",
+    "speeding"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "car_id",
+        "label": "Car",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT\n    id as __value,\n    CASE WHEN COUNT(id) OVER (PARTITION BY name) > 1 AND name IS NOT NULL THEN CONCAT(name, ' - ', RIGHT(vin, 6)) ELSE COALESCE(name, CONCAT('VIN ', vin)) end as __text \nFROM cars\nORDER BY display_priority ASC, name ASC, vin ASC;",
+        "query": "SELECT\n    id as __value,\n    CASE WHEN COUNT(id) OVER (PARTITION BY name) > 1 AND name IS NOT NULL THEN CONCAT(name, ' - ', RIGHT(vin, 6)) ELSE COALESCE(name, CONCAT('VIN ', vin)) end as __text \nFROM cars\nORDER BY display_priority ASC, name ASC, vin ASC;",
+        "hide": 0,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "length_unit",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "select unit_of_length from settings limit 1;",
+        "query": "select unit_of_length from settings limit 1;",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "speed_unit",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT CASE WHEN '$length_unit' = 'km' THEN 'km/h' WHEN '$length_unit' = 'mi' THEN 'mph' END",
+        "query": "SELECT CASE WHEN '$length_unit' = 'km' THEN 'km/h' WHEN '$length_unit' = 'mi' THEN 'mph' END",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "base_url",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "select base_url from settings limit 1;",
+        "query": "select base_url from settings limit 1;",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "min_over",
+        "label": "Only over by at least",
+        "type": "custom",
+        "hide": 0,
+        "description": "Hide incidents that exceeded the limit by less than this (km/h). The pipeline already ignores anything within max(5 km/h, 5 %) of the limit.",
+        "query": "0,5,10,15,20,30",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "0",
+          "value": "0",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "0",
+            "value": "0",
+            "selected": true
+          },
+          {
+            "text": "5",
+            "value": "5",
+            "selected": false
+          },
+          {
+            "text": "10",
+            "value": "10",
+            "selected": false
+          },
+          {
+            "text": "15",
+            "value": "15",
+            "selected": false
+          },
+          {
+            "text": "20",
+            "value": "20",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "spot",
+        "label": "Spot on path map",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT (array_agg(i.id ORDER BY i.max_over DESC))[1] AS __value, concat(coalesce(max(COALESCE(NULLIF(concat_ws(', ', p.street, p.municipality), ''), p.label)), concat(round(i.start_lat, 3), ', ', round(i.start_lon, 3))), '  (', count(*), ' incidents)') AS __text FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3) ORDER BY count(*) DESC, max(i.max_over) DESC LIMIT 100",
+        "query": "SELECT (array_agg(i.id ORDER BY i.max_over DESC))[1] AS __value, concat(coalesce(max(COALESCE(NULLIF(concat_ws(', ', p.street, p.municipality), ''), p.label)), concat(round(i.start_lat, 3), ', ', round(i.start_lon, 3))), '  (', count(*), ' incidents)') AS __text FROM speeding_incidents i LEFT JOIN speeding_places p ON p.lat_key = round(i.start_lat, 3) AND p.lon_key = round(i.start_lon, 3) WHERE i.car_id = $car_id AND $__timeFilter(i.start_ts) AND i.max_over >= $min_over GROUP BY round(i.start_lat, 3), round(i.start_lon, 3) ORDER BY count(*) DESC, max(i.max_over) DESC LIMIT 100",
+        "hide": 0,
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Location-Based Speed Limits",
+  "uid": "location_speed_limits",
+  "version": 1,
+  "weekStart": ""
+}

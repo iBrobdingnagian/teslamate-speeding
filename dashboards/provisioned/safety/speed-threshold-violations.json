@@ -1,0 +1,1243 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Drives whose top speed passed your threshold, checked against the real speed limit: a drive only counts as speeding when an incident above the road's limit backs it up.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Speeding dashboards",
+      "type": "dashboards",
+      "tags": [
+        "speeding"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Drives over threshold",
+      "description": "Drives whose top speed was above the threshold.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS drives FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "...and over the limit",
+      "description": "Of those, drives where you were also above the road's speed limit at that speed. The rest were legally fast (for example 130 on a 130 road) or are not checked yet.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT count(*) AS confirmed FROM drives d JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold AND convert_km(w.max_speed::numeric, '$length_unit') > $speed_threshold",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Top speed",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT convert_km(max(d.speed_max)::numeric, '$length_unit') AS \"max_$length_unit\" FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "velocitykmh",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "Top speed over the limit",
+      "description": "Highest speed reached during an incident (above the limit).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT convert_km(max(w.max_speed)::numeric, '$length_unit') AS \"max_over_limit_$length_unit\" FROM drives d JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "velocitykmh",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "% of drives over threshold",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold) / NULLIF(count(*), 0), 1) AS pct FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Not checked yet",
+      "description": "High-speed drives not yet matched to the road network. The nightly job and the month-end backfill work through them.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS unchecked FROM drives d LEFT JOIN speeding_drive_status s ON s.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold AND s.drive_id IS NULL",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "High-speed drives by day",
+      "description": "All drives above the threshold, and how many of them were also over the limit. Drag across bars to zoom.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT date_trunc('day', d.start_date) AS time, count(*) AS \"High-speed drives\", count(*) FILTER (WHERE convert_km(w.max_speed::numeric, '$length_unit') > $speed_threshold) AS \"of which over the limit\" FROM drives d LEFT JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "none",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "barAlignment": 0,
+            "showPoints": "never",
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 29,
+      "type": "geomap",
+      "title": "Where the worst moment of each drive was",
+      "description": "One marker per high-speed drive at its worst over-the-limit moment (snapped to the road).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT d.id AS drive_id, d.start_date AS time, w.start_lat::float AS latitude, w.start_lon::float AS longitude, convert_km(w.max_over::numeric, '$length_unit') AS over, w.max_speed AS speed, w.speed_limit AS \"limit\", COALESCE(w.road_name, w.road_numbers) AS road FROM drives d JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold ORDER BY w.max_over LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 20
+              },
+              {
+                "color": "dark-red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "fit",
+          "allLayers": true,
+          "lat": 48,
+          "lon": 8,
+          "zoom": 6
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": true
+        },
+        "basemap": {
+          "type": "osm-standard",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Where the worst moment of each drive was",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "config": {
+              "showLegend": true,
+              "style": {
+                "size": {
+                  "field": "over",
+                  "fixed": 6,
+                  "min": 4,
+                  "max": 16
+                },
+                "color": {
+                  "field": "over",
+                  "fixed": "dark-red"
+                },
+                "opacity": 0.75,
+                "symbol": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/marker/circle.svg"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "geomap",
+      "title": "Worst incident of the chosen drive",
+      "description": "The exact snapped stretch where the chosen drive was furthest over the limit. Choose the drive in 'Drive on path map' above, or click a time in the table below.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT c.ord::int AS idx, (c.coord->>1)::float AS latitude, (c.coord->>0)::float AS longitude, i.max_over AS over FROM speeding_incidents i, jsonb_array_elements(i.path->'coordinates') WITH ORDINALITY AS c(coord, ord) WHERE i.id = (SELECT id FROM speeding_incidents WHERE drive_id = NULLIF('$fast_drive', '')::int ORDER BY max_over DESC LIMIT 1) ORDER BY c.ord",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 20
+              },
+              {
+                "color": "dark-red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "fit",
+          "allLayers": true,
+          "lat": 48,
+          "lon": 8,
+          "zoom": 6
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": true
+        },
+        "basemap": {
+          "type": "osm-standard",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "route",
+            "name": "Worst incident of the chosen drive",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "config": {
+              "style": {
+                "size": {
+                  "fixed": 5,
+                  "min": 2,
+                  "max": 10
+                },
+                "color": {
+                  "fixed": "red"
+                },
+                "opacity": 0.9,
+                "arrow": 1
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "type": "barchart",
+      "title": "Top speed of drives",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(convert_km(d.speed_max::numeric, '$length_unit') / 10, 0) * 10 AS \"Top speed of the drive\", count(*) AS \"Drives\" FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND d.speed_max IS NOT NULL GROUP BY 1 HAVING round(convert_km(d.speed_max::numeric, '$length_unit') / 10, 0) * 10 > 0 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "barWidth": 0.9,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "table",
+      "title": "Top high-speed drives",
+      "description": "Fastest drives first. Status tells you whether the speed was actually above the limit.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT d.id AS drive_id, d.start_date AS time, convert_km(d.speed_max::numeric, '$length_unit') AS \"top_speed_$length_unit\", convert_km(d.distance::numeric, '$length_unit') AS \"distance_$length_unit\", CASE WHEN s.drive_id IS NULL THEN 'not checked yet' WHEN s.status <> 'done' THEN s.status WHEN w.drive_id IS NULL THEN 'within the limits' ELSE 'over the limit' END AS status, w.speed_limit AS \"limit_at_worst\", w.max_speed AS \"speed_at_worst\", convert_km(w.max_over::numeric, '$length_unit') AS \"over_$length_unit\", coalesce(c.n, 0) AS incidents, COALESCE(w.road_name, w.road_numbers) AS road, COALESCE(sg.name, CONCAT_WS(', ', COALESCE(sa.name, NULLIF(CONCAT_WS(' ', sa.road, sa.house_number), '')), sa.city)) AS start_address, COALESCE(eg.name, CONCAT_WS(', ', COALESCE(ea.name, NULLIF(CONCAT_WS(' ', ea.road, ea.house_number), '')), ea.city)) AS end_address FROM drives d LEFT JOIN speeding_drive_status s ON s.drive_id = d.id LEFT JOIN worst w ON w.drive_id = d.id LEFT JOIN cnt c ON c.drive_id = d.id LEFT JOIN addresses sa ON sa.id = d.start_address_id LEFT JOIN addresses ea ON ea.id = d.end_address_id LEFT JOIN geofences sg ON sg.id = d.start_geofence_id LEFT JOIN geofences eg ON eg.id = d.end_geofence_id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold ORDER BY d.speed_max DESC LIMIT 200",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drive_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Show the worst incident on the map",
+                    "url": "/d/speed_threshold_tracking?${__url_time_range}&var-car_id=${car_id}&var-speed_threshold=${speed_threshold}&var-fast_drive=${__data.fields.drive_id}"
+                  },
+                  {
+                    "title": "Open drive in TeslaMate",
+                    "url": "/d/zm7wN6Zgz/drive-details?orgId=1&var-car_id=${car_id}&var-drive_id=${__data.fields.drive_id}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": "bargauge",
+      "title": "Top destinations of high-speed drives",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(eg.name, COALESCE(ea.name, NULLIF(CONCAT_WS(' ', ea.road, ea.house_number), '')), ea.city, 'Unknown') AS location, count(*) AS high_speed_drives FROM drives d LEFT JOIN addresses ea ON ea.id = d.end_address_id LEFT JOIN geofences eg ON eg.id = d.end_geofence_id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold GROUP BY 1 ORDER BY 2 DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": "barchart",
+      "title": "By hour of day",
+      "description": "Start hour (UTC) of high-speed drives.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT extract(hour FROM d.start_date)::int AS \"Hour of day (UTC)\", count(*) AS \"High-speed drives\" FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "barWidth": 0.9,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "type": "barchart",
+      "title": "Traffic on high-speed drives",
+      "description": "Congestion estimate of the drive's worst moment (counts).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT CASE WHEN w.congestion_ratio IS NULL THEN 'unknown' WHEN w.congestion_ratio < 0.2 THEN '1 free-flowing' WHEN w.congestion_ratio < 0.5 THEN '2 some traffic' ELSE '3 slow / congested' END AS \"Traffic\", count(*) AS \"High-speed drives\" FROM drives d LEFT JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "barWidth": 0.9,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 36,
+      "type": "barchart",
+      "title": "Weather on high-speed drives",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "TeslaMate"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "TeslaMate"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH worst AS (SELECT DISTINCT ON (i.drive_id) i.drive_id, i.max_speed, i.speed_limit, i.max_over, i.road_name, i.road_numbers, i.start_lat, i.start_lon, i.hour_utc, i.weather_main, i.congestion_ratio FROM speeding_incidents i WHERE i.car_id = $car_id AND i.start_ts >= $__timeFrom()::timestamp - interval '1 day' AND i.start_ts <= $__timeTo() ORDER BY i.drive_id, i.max_over DESC), cnt AS (SELECT drive_id, count(*) AS n FROM speeding_incidents WHERE car_id = $car_id AND start_ts >= $__timeFrom()::timestamp - interval '1 day' AND start_ts <= $__timeTo() GROUP BY 1) SELECT coalesce(w.weather_main, 'unknown') AS \"Weather\", count(*) AS \"High-speed drives\" FROM drives d LEFT JOIN worst w ON w.drive_id = d.id WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold GROUP BY 1 ORDER BY 2 DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "xTickLabelRotation": -45,
+        "showValue": "auto",
+        "stacking": "none",
+        "barWidth": 0.9,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [
+    "tesla",
+    "safety",
+    "speeding"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "car_id",
+        "label": "Car",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT\n    id as __value,\n    CASE WHEN COUNT(id) OVER (PARTITION BY name) > 1 AND name IS NOT NULL THEN CONCAT(name, ' - ', RIGHT(vin, 6)) ELSE COALESCE(name, CONCAT('VIN ', vin)) end as __text \nFROM cars\nORDER BY display_priority ASC, name ASC, vin ASC;",
+        "query": "SELECT\n    id as __value,\n    CASE WHEN COUNT(id) OVER (PARTITION BY name) > 1 AND name IS NOT NULL THEN CONCAT(name, ' - ', RIGHT(vin, 6)) ELSE COALESCE(name, CONCAT('VIN ', vin)) end as __text \nFROM cars\nORDER BY display_priority ASC, name ASC, vin ASC;",
+        "hide": 0,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "length_unit",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "select unit_of_length from settings limit 1;",
+        "query": "select unit_of_length from settings limit 1;",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "speed_unit",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT CASE WHEN '$length_unit' = 'km' THEN 'km/h' WHEN '$length_unit' = 'mi' THEN 'mph' END",
+        "query": "SELECT CASE WHEN '$length_unit' = 'km' THEN 'km/h' WHEN '$length_unit' = 'mi' THEN 'mph' END",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "base_url",
+        "label": "",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "select base_url from settings limit 1;",
+        "query": "select base_url from settings limit 1;",
+        "hide": 2,
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      },
+      {
+        "name": "speed_threshold",
+        "label": "Speed threshold",
+        "type": "custom",
+        "hide": 0,
+        "description": "A drive counts as high-speed when its top speed is above this (km/h or mph, per your unit setting).",
+        "query": "50,70,80,90,100,110,120,130,140,150,160",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "130",
+          "value": "130",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "50",
+            "value": "50",
+            "selected": false
+          },
+          {
+            "text": "70",
+            "value": "70",
+            "selected": false
+          },
+          {
+            "text": "80",
+            "value": "80",
+            "selected": false
+          },
+          {
+            "text": "90",
+            "value": "90",
+            "selected": false
+          },
+          {
+            "text": "100",
+            "value": "100",
+            "selected": false
+          },
+          {
+            "text": "110",
+            "value": "110",
+            "selected": false
+          },
+          {
+            "text": "120",
+            "value": "120",
+            "selected": false
+          },
+          {
+            "text": "130",
+            "value": "130",
+            "selected": true
+          },
+          {
+            "text": "140",
+            "value": "140",
+            "selected": false
+          },
+          {
+            "text": "150",
+            "value": "150",
+            "selected": false
+          },
+          {
+            "text": "160",
+            "value": "160",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "fast_drive",
+        "label": "Drive on path map",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TeslaMate"
+        },
+        "definition": "SELECT d.id AS __value, concat(to_char(d.start_date, 'YYYY-MM-DD HH24:MI'), '  top ', convert_km(d.speed_max::numeric, '$length_unit'), ' ', '$speed_unit') AS __text FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold AND EXISTS (SELECT 1 FROM speeding_incidents s WHERE s.drive_id = d.id) ORDER BY d.speed_max DESC LIMIT 200",
+        "query": "SELECT d.id AS __value, concat(to_char(d.start_date, 'YYYY-MM-DD HH24:MI'), '  top ', convert_km(d.speed_max::numeric, '$length_unit'), ' ', '$speed_unit') AS __text FROM drives d WHERE d.car_id = $car_id AND $__timeFilter(d.start_date) AND d.distance >= 0.3 AND convert_km(d.speed_max::numeric, '$length_unit') > $speed_threshold AND EXISTS (SELECT 1 FROM speeding_incidents s WHERE s.drive_id = d.id) ORDER BY d.speed_max DESC LIMIT 200",
+        "hide": 0,
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "regex": "",
+        "sort": 0,
+        "current": {}
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "High Speed Tracking",
+  "uid": "speed_threshold_tracking",
+  "version": 1,
+  "weekStart": ""
+}
