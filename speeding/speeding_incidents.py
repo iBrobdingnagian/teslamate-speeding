@@ -59,6 +59,16 @@ MAX_ATTEMPTS = 3
 PAUSE_S = 0.3           # stay well under TomTom's 5 requests/second
 
 DDL = """
+CREATE TABLE IF NOT EXISTS api_usage_log (
+    id SERIAL PRIMARY KEY,
+    provider TEXT NOT NULL,
+    product TEXT NOT NULL,
+    called_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    success BOOLEAN,
+    status_code INTEGER,
+    key_index INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_api_usage_provider_product_time ON api_usage_log(provider, product, called_at);
 CREATE TABLE IF NOT EXISTS speeding_drive_status (
     drive_id INTEGER PRIMARY KEY,
     processed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
