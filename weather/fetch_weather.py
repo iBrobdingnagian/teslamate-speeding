@@ -19,7 +19,7 @@ from contextlib import closing
 # Load .env file if it exists
 def load_env_file():
     """Load environment variables from .env file"""
-    env_path = Path(__file__).parent / '.env'
+    env_path = Path(__file__).resolve().parent.parent / '.env'   # the .env in the repository root
 
     if env_path.exists():
         print(f"Loading environment from: {env_path}")
