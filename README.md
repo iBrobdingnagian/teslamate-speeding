@@ -16,6 +16,16 @@ Each drive is thinned, snapped to the road network with the [TomTom Snap to Road
 - Python 3 on any machine that can reach the database (developed and run on Python 3.12).
 - A free TomTom developer key.
 
+## Try it in two minutes (no Tesla account, no TomTom key)
+
+```sh
+git clone https://github.com/iBrobdingnagian/teslamate-speeding.git
+cd teslamate-speeding
+docker compose -f demo/docker-compose.yml up --build
+```
+
+This starts TeslaMate, PostgreSQL and Grafana, fills the database with about 150 synthetic drives and 160 speeding incidents, and loads the three dashboards. Open <http://localhost:3000> (login `admin` / `admin`) and look under Dashboards, folders Safety and Location. The routes are invented, so nothing in the demo refers to a real person or place. Stop it with `docker compose -f demo/docker-compose.yml down`.
+
 ## Install
 
 ```sh
@@ -54,7 +64,7 @@ The generator writes three dashboards: Real Speed Limit Violations, High Speed T
 python3 dashboards/build_speeding_dashboards.py --out dashboards/provisioned
 ```
 
-Mount `dashboards/provisioned` into the Grafana container (for example at `/dashboards_speeding`) and add the two providers from `dashboards/dashboards.yml.example` to your Grafana provisioning folder. Grafana picks the files up within 30 seconds. They use TeslaMate's default PostgreSQL data source (uid `TeslaMate`).
+Mount `dashboards/provisioned` into the Grafana container (for example at `/dashboards_speeding`) and add the two providers from `dashboards/dashboards.yml.example` to your Grafana provisioning folder. Grafana picks the files up within 30 seconds. They use TeslaMate's default PostgreSQL data source, the one named `TeslaMate`.
 
 Edit the generator, not the JSON, if you want to change the dashboards.
 
@@ -87,6 +97,15 @@ The constants are at the top of `speeding/speeding_incidents.py`.
 - Coverage of limits depends on the road. Some segments, especially small roads, have none.
 - Your car reports speed in whole km/h with some rounding. The 5 % tolerance is there for that.
 - This repository does not give legal advice. Do not use the output to contest a fine without checking the road yourself.
+
+## Development
+
+```sh
+pip install -r requirements.txt pytest
+python -m pytest
+```
+
+The tests cover the detection rules (tolerance, merge gap, minimum length, limit changes, advisory speeds), the TomTom response parsing and the chunking. CI also rebuilds the dashboards and fails if `dashboards/provisioned/` is out of date, so change the generator and commit its output.
 
 ## License
 

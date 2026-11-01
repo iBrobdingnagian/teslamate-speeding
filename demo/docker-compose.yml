@@ -1,0 +1,59 @@
+# Demo: TeslaMate + Grafana + this project's dashboards, filled with synthetic data. No Tesla account or TomTom key needed.
+#   docker compose -f demo/docker-compose.yml up --build
+# then open http://localhost:3000 (login admin / admin) -> Dashboards -> Safety / Location
+name: teslamate-speeding-demo
+
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: teslamate
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: teslamate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teslamate"]
+      interval: 3s
+      retries: 20
+
+  teslamate:
+    image: teslamate/teslamate:latest
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_USER: teslamate
+      DATABASE_PASS: demo
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+      ENCRYPTION_KEY: demo-only-not-a-secret
+      DISABLE_MQTT: "true"
+    # TeslaMate creates its tables on start-up. It stays idle because no Tesla account is signed in.
+
+  seed:
+    build:
+      context: ..
+    entrypoint: ["python", "demo/seed.py"]
+    depends_on:
+      - teslamate
+    environment:
+      DB_HOST: database
+      DB_PASSWORD: demo
+    restart: "no"
+
+  grafana:
+    image: teslamate/grafana:latest
+    depends_on:
+      - database
+    environment:
+      DATABASE_USER: teslamate
+      DATABASE_PASS: demo
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ../dashboards/provisioned:/dashboards_speeding:ro
+      - ../dashboards/dashboards.yml.example:/etc/grafana/provisioning/dashboards/speeding.yml:ro
+    ports:
+      - "3000:3000"
